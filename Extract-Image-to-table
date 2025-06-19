@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Table Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #FFF;
+            border-bottom-color: #4f46e5;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #result-table th, #result-table td {
+            border: 1px solid #4b5563;
+            padding: 12px;
+            text-align: left;
+        }
+        #result-table th {
+            background-color: #374151;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-3xl mx-auto p-8 bg-gray-800 rounded-2xl shadow-2xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-100">Image to Table Extractor</h1>
+            <p class="text-gray-400 mt-2">Upload an image to automatically extract text into a table.</p>
+        </header>
+
+        <!-- Image Upload Section -->
+        <div id="upload-section">
+            <div class="mb-6">
+                <label for="image-upload" class="block text-lg font-semibold mb-3 text-gray-300">Upload Image</label>
+                <div class="flex items-center justify-center w-full">
+                    <label for="image-upload" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg class="w-10 h-10 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                            </svg>
+                            <p class="mb-2 text-sm text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                            <p class="text-xs text-gray-500">PNG, JPG, or WEBP</p>
+                        </div>
+                        <input id="image-upload" type="file" class="hidden" accept="image/png, image/jpeg, image/webp" />
+                    </label>
+                </div> 
+            </div>
+            
+            <div id="image-preview-container" class="hidden text-center">
+                 <img id="image-preview" src="#" alt="Image preview" class="max-w-xs mx-auto rounded-lg shadow-md mb-4"/>
+                 <button id="extract-btn" class="bg-indigo-600 text-white font-bold px-8 py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105">
+                     Extract Text
+                 </button>
+            </div>
+        </div>
+
+        <!-- Loading and Result Section -->
+        <div id="result-section" class="hidden">
+            <div id="loader-container" class="text-center py-10">
+                <div class="loader mx-auto"></div>
+                <p class="mt-4 text-gray-400">AI is analyzing the image...</p>
+            </div>
+            <div id="error-container" class="hidden text-center text-red-400 bg-red-900 bg-opacity-50 p-4 rounded-lg">
+                <p id="error-message"></p>
+                 <button id="try-again-btn" class="mt-4 bg-gray-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-gray-500 transition-colors">
+                    Try Again
+                </button>
+            </div>
+            <div id="table-container" class="hidden">
+                <h2 class="text-2xl font-bold text-gray-200 mb-4">Extracted Data</h2>
+                <div class="overflow-x-auto bg-gray-900 p-4 rounded-lg">
+                    <table id="result-table" class="w-full">
+                        <!-- Table content will be generated here -->
+                    </table>
+                </div>
+                 <button id="start-over-btn" class="mt-6 bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-indigo-700 transition-all">
+                    Start Over
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadSection = document.getElementById('upload-section');
+        const resultSection = document.getElementById('result-section');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const extractBtn = document.getElementById('extract-btn');
+        const loaderContainer = document.getElementById('loader-container');
+        const errorContainer = document.getElementById('error-container');
+        const errorMessage = document.getElementById('error-message');
+        const tableContainer = document.getElementById('table-container');
+        const resultTable = document.getElementById('result-table');
+        const tryAgainBtn = document.getElementById('try-again-btn');
+        const startOverBtn = document.getElementById('start-over-btn');
+
+        let base64ImageData = '';
+
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    base64ImageData = e.target.result.split(',')[1];
+                    imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        extractBtn.addEventListener('click', async () => {
+            if (!base64ImageData) {
+                alert('Please upload an image first.');
+                return;
+            }
+            // Switch to result view
+            uploadSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+            loaderContainer.classList.remove('hidden');
+            errorContainer.classList.add('hidden');
+            tableContainer.classList.add('hidden');
+
+            try {
+                await callGeminiAPI();
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+
+        async function callGeminiAPI() {
+            const prompt = `Analyze the provided image. Identify all the text content. Structure this information into a logical table format with appropriate headers. If the content is already a table, recreate it. If it's a list or receipt, create columns like 'Item', 'Quantity', and 'Price'. If it's general text, create columns that best categorize the information. Return the result as a JSON object containing a 'headers' array (for table columns) and a 'rows' array of arrays (for table data).`;
+            
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    headers: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                    },
+                    rows: {
+                        type: "ARRAY",
+                        items: {
+                            type: "ARRAY",
+                            items: { type: "STRING" }
+                        }
+                    }
+                },
+                required: ["headers", "rows"]
+            };
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
+                    ]
+                }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                }
+            };
+
+            const apiKey = ""; // API key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const data = JSON.parse(jsonText);
+                renderTable(data);
+                loaderContainer.classList.add('hidden');
+                tableContainer.classList.remove('hidden');
+            } else {
+                console.error('Invalid API response:', result);
+                throw new Error('Failed to parse data from the AI. The response format was unexpected.');
+            }
+        }
+        
+        function renderTable(data) {
+            resultTable.innerHTML = ''; // Clear previous table
+
+            // Create table header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            data.headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            resultTable.appendChild(thead);
+
+            // Create table body
+            const tbody = document.createElement('tbody');
+            data.rows.forEach(rowData => {
+                const row = document.createElement('tr');
+                rowData.forEach(cellData => {
+                    const td = document.createElement('td');
+                    td.textContent = cellData;
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            });
+            resultTable.appendChild(tbody);
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            loaderContainer.classList.add('hidden');
+            errorContainer.classList.remove('hidden');
+        }
+        
+        function resetApp() {
+            uploadSection.classList.remove('hidden');
+            resultSection.classList.add('hidden');
+            imagePreviewContainer.classList.add('hidden');
+            imageUpload.value = '';
+            base64ImageData = '';
+            imagePreview.src = '#';
+        }
+
+        tryAgainBtn.addEventListener('click', resetApp);
+        startOverBtn.addEventListener('click', resetApp);
+
+    </script>
+</body>
+</html>
